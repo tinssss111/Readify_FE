@@ -88,6 +88,7 @@ const request = async <Response>(
     } as HeadersInit,
     body,
     method,
+    credentials: "include",
   });
 
   const payload: Response = await response.json();

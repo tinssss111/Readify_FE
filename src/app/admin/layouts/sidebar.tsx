@@ -137,10 +137,7 @@ export default function AdminSidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6 justify-between">
         {!isCollapsed && (
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 group"
-          >
+          <Link href="/admin" className="flex items-center gap-3 group">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <LayoutDashboard className="w-4 h-4 text-primary-foreground" />
             </div>
@@ -174,7 +171,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* Navigation Groups */}
-      <nav className="flex-1 space-y-8 p-6 overflow-y-auto">
+      <nav className="flex-1 space-y-8 p-6 overflow-y-auto scrollbar-hide">
         {sidebarGroups.map((group) => (
           <div key={group.title} className="space-y-3">
             {/* Group Title */}

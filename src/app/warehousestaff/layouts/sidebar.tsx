@@ -146,7 +146,7 @@ export default function WarehouseSidebar() {
       </div>
 
       {/* Navigation Groups */}
-      <nav className="flex-1 space-y-8 p-6 overflow-y-auto">
+      <nav className="flex-1 space-y-8 p-6 overflow-y-auto scrollbar-hide">
         {sidebarGroups.map((group) => (
           <div key={group.title} className="space-y-3">
             {/* Group Title */}
