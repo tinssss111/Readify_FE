@@ -24,6 +24,27 @@ import type {
   PromotionApplyScope,
   PromotionStatus,
 } from "@/types/promotion";
+import { toast } from "sonner";
+
+// Toast styling helpers
+const toastErrorStyle = {
+  style: {
+    "--normal-bg": "light-dark(var(--color-red-600), var(--color-red-400))",
+    "--normal-text": "var(--color-white)",
+    "--normal-border": "light-dark(var(--color-red-600), var(--color-red-400))",
+  } as React.CSSProperties,
+  duration: 5000,
+};
+
+const toastSuccessStyle = {
+  style: {
+    "--normal-bg": "light-dark(var(--color-green-600), var(--color-green-400))",
+    "--normal-text": "var(--color-white)",
+    "--normal-border":
+      "light-dark(var(--color-green-600), var(--color-green-400))",
+  } as React.CSSProperties,
+  duration: 5000,
+};
 
 export default function EditPromotionPage() {
   const params = useParams();
@@ -32,7 +53,6 @@ export default function EditPromotionPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<Promotion | null>(null);
 
   const [formData, setFormData] = useState({
@@ -53,6 +73,7 @@ export default function EditPromotionPage() {
     if (id) {
       fetchPromotion();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchPromotion = async () => {
@@ -84,7 +105,7 @@ export default function EditPromotionPage() {
       }
     } catch (err) {
       console.error("Error fetching promotion:", err);
-      setError("Failed to load promotion");
+      toast.error("Failed to load promotion", toastErrorStyle);
     } finally {
       setLoading(false);
     }
@@ -110,27 +131,158 @@ export default function EditPromotionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!formData.name || !formData.discountValue) {
-      setError("Please fill in all required fields");
+      toast.error("Please fill in all required fields", toastErrorStyle);
+      return;
+    }
+
+    if (formData.name.trim().length < 3) {
+      toast.error(
+        "Promotion name must be at least 3 characters long",
+        toastErrorStyle
+      );
+      return;
+    }
+
+    if (formData.name.trim().length > 100) {
+      toast.error(
+        "Promotion name cannot exceed 100 characters",
+        toastErrorStyle
+      );
+      return;
+    }
+
+    // Validate description length
+    if (formData.description && formData.description.trim().length > 500) {
+      toast.error("Description cannot exceed 500 characters", toastErrorStyle);
       return;
     }
 
     if (!formData.startDate || !formData.endDate) {
-      setError("Please select start and end dates");
+      toast.error("Please select start and end dates", toastErrorStyle);
       return;
     }
 
+    // Validate dates
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+
+    if (endDate <= startDate) {
+      toast.error("End date must be after start date", toastErrorStyle);
+      return;
+    }
+
+    // Validate at least 1 hour duration
+    const duration = endDate.getTime() - startDate.getTime();
+    const oneHour = 60 * 60 * 1000;
+    if (duration < oneHour) {
+      toast.error(
+        "Promotion duration must be at least 1 hour",
+        toastErrorStyle
+      );
+      return;
+    }
+
+    // Validate discount value
     const discountValue = parseFloat(formData.discountValue);
     if (isNaN(discountValue) || discountValue <= 0) {
-      setError("Discount value must be a positive number");
+      toast.error("Discount value must be a positive number", toastErrorStyle);
       return;
     }
 
-    if (formData.discountType === "PERCENT" && discountValue > 100) {
-      setError("Discount percentage cannot exceed 100%");
-      return;
+    if (formData.discountType === "PERCENT") {
+      if (discountValue > 100) {
+        toast.error("Discount percentage cannot exceed 100%", toastErrorStyle);
+        return;
+      }
+      if (discountValue < 0.01) {
+        toast.error(
+          "Discount percentage must be at least 0.01%",
+          toastErrorStyle
+        );
+        return;
+      }
+    } else {
+      // FIXED amount validation
+      if (discountValue < 1000) {
+        toast.error(
+          "Fixed discount must be at least 1,000 VND",
+          toastErrorStyle
+        );
+        return;
+      }
+    }
+
+    // Validate minOrderValue
+    if (formData.minOrderValue) {
+      const minOrderValue = parseFloat(formData.minOrderValue);
+      if (isNaN(minOrderValue) || minOrderValue < 0) {
+        toast.error("Minimum order value must be a positive number");
+        return;
+      }
+      if (minOrderValue < 1000) {
+        toast.error("Minimum order value must be at least 1,000 VND");
+        return;
+      }
+
+      // For FIXED type, ensure minOrderValue is greater than discount
+      if (formData.discountType === "FIXED" && minOrderValue <= discountValue) {
+        toast.error(
+          "Minimum order value must be greater than the fixed discount amount"
+        );
+        return;
+      }
+    }
+
+    // Validate maxDiscount
+    if (formData.maxDiscount) {
+      const maxDiscount = parseFloat(formData.maxDiscount);
+      if (isNaN(maxDiscount) || maxDiscount < 0) {
+        toast.error(
+          "Maximum discount must be a positive number",
+          toastErrorStyle
+        );
+        return;
+      }
+      if (maxDiscount < 1000) {
+        toast.error(
+          "Maximum discount must be at least 1,000 VND",
+          toastErrorStyle
+        );
+        return;
+      }
+
+      // For FIXED type, maxDiscount should not be greater than discountValue
+      if (formData.discountType === "FIXED" && maxDiscount > discountValue) {
+        toast.error(
+          "Maximum discount cannot be greater than the discount value",
+          toastErrorStyle
+        );
+        return;
+      }
+    }
+
+    // Validate usageLimit
+    if (formData.usageLimit) {
+      const usageLimit = parseInt(formData.usageLimit);
+      if (isNaN(usageLimit) || usageLimit < 1) {
+        toast.error("Usage limit must be at least 1", toastErrorStyle);
+        return;
+      }
+      if (usageLimit > 1000000) {
+        toast.error("Usage limit cannot exceed 1,000,000", toastErrorStyle);
+        return;
+      }
+
+      // Validate that usage limit is not less than current usage
+      if (promotion && usageLimit < promotion.usedCount) {
+        toast.error(
+          `Usage limit cannot be less than current usage (${promotion.usedCount})`,
+          toastErrorStyle
+        );
+        return;
+      }
     }
 
     try {
@@ -179,9 +331,10 @@ export default function EditPromotionPage() {
       const response = await PromotionApiRequest.updatePromotion(id, payload);
 
       if (response.payload.success) {
+        toast.success("Promotion updated successfully!", toastSuccessStyle);
         router.push(`/admin/promotion/${id}`);
       } else {
-        setError("Failed to update promotion");
+        toast.error("Failed to update promotion", toastErrorStyle);
       }
     } catch (err: any) {
       console.error("Error updating promotion:", err);
@@ -193,7 +346,7 @@ export default function EditPromotionPage() {
         err.payload?.data?.details?.[0]?.message ||
         err.message ||
         "An error occurred while updating promotion";
-      setError(errorMessage);
+      toast.error(errorMessage, toastErrorStyle);
     } finally {
       setSubmitting(false);
     }
@@ -262,13 +415,6 @@ export default function EditPromotionPage() {
         </Alert>
       )}
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <Card>
@@ -293,6 +439,8 @@ export default function EditPromotionPage() {
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 required
+                minLength={3}
+                maxLength={100}
               />
             </div>
 
@@ -349,8 +497,9 @@ export default function EditPromotionPage() {
                     handleChange("discountValue", e.target.value)
                   }
                   disabled={locked}
-                  min="0"
-                  step={formData.discountType === "PERCENT" ? "0.01" : "1"}
+                  min={formData.discountType === "PERCENT" ? "0.01" : "1000"}
+                  max={formData.discountType === "PERCENT" ? "100" : "10000000"}
+                  step={formData.discountType === "PERCENT" ? "0.01" : "1000"}
                 />
                 {locked && (
                   <p className="text-xs text-muted-foreground">
@@ -371,7 +520,8 @@ export default function EditPromotionPage() {
                     handleChange("minOrderValue", e.target.value)
                   }
                   disabled={locked}
-                  min="0"
+                  min="1000"
+                  step="1000"
                 />
                 {locked && (
                   <p className="text-xs text-muted-foreground">
@@ -388,7 +538,8 @@ export default function EditPromotionPage() {
                   value={formData.maxDiscount}
                   onChange={(e) => handleChange("maxDiscount", e.target.value)}
                   disabled={locked}
-                  min="0"
+                  min="1000"
+                  step="1000"
                 />
                 {locked && (
                   <p className="text-xs text-muted-foreground">
@@ -442,7 +593,8 @@ export default function EditPromotionPage() {
                   type="number"
                   value={formData.usageLimit}
                   onChange={(e) => handleChange("usageLimit", e.target.value)}
-                  min="0"
+                  min={(promotion?.usedCount || 0).toString()}
+                  max="1000000"
                 />
                 <p className="text-xs text-muted-foreground">
                   Current usage: {promotion.usedCount || 0}
